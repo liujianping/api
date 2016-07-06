@@ -12,8 +12,8 @@ Simplified HTTP client for API wrapper
 	//! create api request agent
 
 	agent := api.URL("http://a.domain.com/")
-	agent := api.HTTP("host:port", port)
-	agent := api.HTTPs("host", port)
+	agent := api.HTTP("host:port")
+	agent := api.HTTPs("host")
 	
 	agent := api.Get("http://a.domain.com/")
 	// agent := api.URL("http://a.domain.com/").Method(api.GET)
@@ -23,7 +23,11 @@ Simplified HTTP client for API wrapper
 	agent := api.Put("http://a.domain.com/")
 	agent := api.Head("http://a.domain.com/")
 
-	//! set api request method & headers & parameters & form-data
+	//! set api request method & URI & headers & parameters & form-data
+
+	agent.Method(api.POST)
+
+	agent.URI("/cgi/token")
 
 	agent.HeadSet("key", "value")
 	agent.HeadDel("key", "value")
@@ -35,6 +39,17 @@ Simplified HTTP client for API wrapper
 	agent.FormData(form)
 	agent.JSONData(obj)
 	agent.XMLData(obj)
+
+	//! chain invoke
+	var result Result{}
+
+	if err := api.HTTP("api.demo.com:8080").URI("/a/b/c").QuerySet("x", "y").JSONData(map[string]interface{}{
+		"aaa": "xxx",
+		"bbb": 100,
+		}).Method(api.POST).JSON(&result).Error; err != nil {
+			//! do something
+		}
+
 
 	//! do api request
 

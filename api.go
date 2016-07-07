@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"strings"
 
@@ -41,6 +43,7 @@ type Agent struct {
 	data    io.Reader
 	length  int
 	Error   error
+	debug   bool
 	conn    *http.Client
 }
 
@@ -106,6 +109,10 @@ func HTTPs(host string) *Agent {
 	}
 }
 
+func (a *Agent) Debug(flag bool) *Agent {
+	a.debug = flag
+	return a
+}
 func (a *Agent) URI(uri string) *Agent {
 	a.u.Path = uri
 	return a
@@ -229,12 +236,22 @@ func (a *Agent) Bytes() (*http.Response, []byte, error) {
 	}
 
 	//! do
+	if a.debug {
+		dump, _ := httputil.DumpRequest(req, true)
+		log.Printf("api request\n-------------------------------\n%s\n", string(dump))
+	}
+
 	resp, err := a.conn.Do(req)
 	if err != nil {
 		a.Error = err
 		return nil, nil, err
 	}
 	defer resp.Body.Close()
+
+	if a.debug {
+		dump, _ := httputil.DumpResponse(resp, true)
+		log.Printf("api response\n--------------------------------\n%s\n", string(dump))
+	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {

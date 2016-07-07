@@ -17,8 +17,8 @@ func TestGetText(t *testing.T) {
 
 func TestGetJSON(t *testing.T) {
 	agent := Get("https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential")
-	agent.QueryAdd("appid", "wx02da1455ece52e5a")
-	agent.QueryAdd("secret", "9340ce4b0ab01f33e66dcf9650103fb3")
+	agent.QueryAdd("appid", "appid")
+	agent.QueryAdd("secret", "secret")
 
 	log.Printf("agent url query: (%v)", agent.QueryGet())
 

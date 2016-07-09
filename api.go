@@ -279,9 +279,11 @@ func (a *Agent) JSON(obj interface{}) (*http.Response, []byte, error) {
 	}
 
 	//! decode bytes to json
-	if err := json.NewDecoder(resp.Body).Decode(&obj); err != nil {
-		a.Error = err
-		return resp, bytes, err
+	if obj != nil {
+		if err := json.NewDecoder(resp.Body).Decode(&obj); err != nil {
+			a.Error = err
+			return resp, bytes, err
+		}
 	}
 
 	return resp, bytes, a.Error
@@ -296,9 +298,11 @@ func (a *Agent) XML(obj interface{}) (*http.Response, []byte, error) {
 	}
 
 	//! decode bytes to json
-	if err := xml.NewDecoder(resp.Body).Decode(&obj); err != nil {
-		a.Error = err
-		return resp, bytes, err
+	if obj != nil {
+		if err := xml.NewDecoder(resp.Body).Decode(&obj); err != nil {
+			a.Error = err
+			return resp, bytes, err
+		}
 	}
 
 	return resp, bytes, a.Error

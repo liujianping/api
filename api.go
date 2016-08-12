@@ -185,11 +185,31 @@ func (a *Agent) FormData(form map[string][]string) *Agent {
 	return a
 }
 
-func (a *Agent) JSONData(obj interface{}) *Agent {
-	data, err := json.Marshal(obj)
-	a.data = bytes.NewBuffer(data)
-	a.length = len(data)
-	a.Error = err
+func JSONMarshal(v interface{}, unescape bool) ([]byte, error) {
+	b, err := json.Marshal(v)
+
+	if unescape {
+		b = bytes.Replace(b, []byte("\\u003c"), []byte("<"), -1)
+		b = bytes.Replace(b, []byte("\\u003e"), []byte(">"), -1)
+		b = bytes.Replace(b, []byte("\\u0026"), []byte("&"), -1)
+	}
+	return b, err
+}
+
+func (a *Agent) JSONData(args ...interface{}) *Agent {
+	if len(args) == 1 {
+		data, err := JSONMarshal(args[0], false)
+		a.data = bytes.NewBuffer(data)
+		a.length = len(data)
+		a.Error = err
+	}
+
+	if len(args) == 2 {
+		data, err := JSONMarshal(args[0], args[1])
+		a.data = bytes.NewBuffer(data)
+		a.length = len(data)
+		a.Error = err
+	}
 	return a
 }
 

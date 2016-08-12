@@ -205,7 +205,7 @@ func (a *Agent) JSONData(args ...interface{}) *Agent {
 	}
 
 	if len(args) == 2 {
-		data, err := JSONMarshal(args[0], args[1])
+		data, err := JSONMarshal(args[0], args[1].(bool))
 		a.data = bytes.NewBuffer(data)
 		a.length = len(data)
 		a.Error = err

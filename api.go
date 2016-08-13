@@ -138,6 +138,11 @@ func (a *Agent) QueryAdd(key string, value string) *Agent {
 	return a
 }
 
+func (a *Agent) Fragment(value string) *Agent {
+	a.u.Fragment = value
+	return a
+}
+
 func (a *Agent) QueryDel(key string) *Agent {
 	a.query.Del(key)
 	return a

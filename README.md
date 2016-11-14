@@ -1,7 +1,7 @@
 # api
 ===
 
-Simplified HTTP client for API wrapper
+Simplified HTTP client library 
 
 ##  Quick Start
 

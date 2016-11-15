@@ -1,7 +1,7 @@
 # api
 ===
 
-Simplified HTTP client library :)
+Simplified HTTP client library :) :D
 
 ##  Quick Start
 

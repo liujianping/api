@@ -5,6 +5,8 @@ Simplified HTTP client library :) :D
 
 add this line for test..
 
+add by the project
+
 ##  Quick Start
 
 ````go

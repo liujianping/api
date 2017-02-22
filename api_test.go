@@ -7,9 +7,9 @@ import (
 )
 
 func TestGetText(t *testing.T) {
-	_, text, err := Get("http://baidu.com").Text()
+	code, text, err := Get("http://baidu.com").Text()
 	if err != nil {
-		t.Errorf("api.Get failed: %s", err.Error())
+		t.Errorf("api.Get failed: %d, %s", code, err.Error())
 	}
 
 	log.Printf("api.Get (%s)", text)
@@ -32,9 +32,9 @@ func TestGetJSON(t *testing.T) {
 
 	var tk Token
 
-	_, _, err := agent.JSON(&tk)
+	code, err := agent.JSON(&tk)
 	if err != nil {
-		t.Errorf("api.JSON failed: %s", err.Error())
+		t.Errorf("api.JSON failed: %d, %s", code, err.Error())
 	}
 
 	log.Printf("api.JSON (%v)", tk)

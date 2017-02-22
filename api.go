@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -109,6 +110,13 @@ func HTTPs(host string) *Agent {
 	}
 }
 
+func (a *Agent) Transport(tr http.RoundTripper) *Agent {
+	a.conn = &http.Client{
+		Transport: tr,
+	}
+	return a
+}
+
 func (a *Agent) Debug(flag bool) *Agent {
 	a.debug = flag
 	return a
@@ -179,7 +187,9 @@ func (a *Agent) Method(m string) *Agent {
 }
 
 func (a *Agent) ContentType(t string) *Agent {
-	a.m = types[t]
+	if ct, ok := types[t]; ok {
+		a.m = ct
+	}
 	return a
 }
 
@@ -226,11 +236,11 @@ func (a *Agent) XMLData(obj interface{}) *Agent {
 	return a
 }
 
-func (a *Agent) Bytes() (*http.Response, []byte, error) {
+func (a *Agent) Do() (*http.Response, error) {
 	req, err := http.NewRequest(a.m, a.u.String(), a.data)
 	if err != nil {
 		a.Error = err
-		return nil, nil, err
+		return nil, err
 	}
 
 	//! headers
@@ -266,10 +276,20 @@ func (a *Agent) Bytes() (*http.Response, []byte, error) {
 		log.Printf("api request\n-------------------------------\n%s\n", string(dump))
 	}
 
-	resp, err := a.conn.Do(req)
+	return a.conn.Do(req)
+}
+
+func (a *Agent) Status() (int, string, error) {
+	resp, err := a.Do()
+	a.Error = err
+	return resp.StatusCode, resp.Status, err
+}
+
+func (a *Agent) Bytes() (int, []byte, error) {
+	resp, err := a.Do()
 	if err != nil {
 		a.Error = err
-		return nil, nil, err
+		return resp.StatusCode, nil, err
 	}
 	defer resp.Body.Close()
 
@@ -278,57 +298,64 @@ func (a *Agent) Bytes() (*http.Response, []byte, error) {
 		log.Printf("api response\n--------------------------------\n%s\n", string(dump))
 	}
 
+	if resp.StatusCode != 200 {
+		a.Error = fmt.Errorf(resp.Status)
+		return resp.StatusCode, nil, a.Error
+	}
+
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		a.Error = err
-		return nil, nil, err
+		return resp.StatusCode, nil, err
 	}
 
 	resp.Body = ioutil.NopCloser(bytes.NewBuffer(body))
-	return resp, body, a.Error
+	return resp.StatusCode, body, a.Error
 }
 
-func (a *Agent) Text() (*http.Response, string, error) {
+func (a *Agent) Text() (int, string, error) {
 	a.t = "text"
-
-	resp, bytes, err := a.Bytes()
-	return resp, string(bytes), err
+	code, bytes, err := a.Bytes()
+	return code, string(bytes), err
 }
 
-func (a *Agent) JSON(obj interface{}) (*http.Response, []byte, error) {
+func (a *Agent) JSON(obj interface{}) (int, error) {
 	a.t = "json"
 
-	resp, bytes, err := a.Bytes()
+	resp, err := a.Do()
 	if err != nil {
-		return resp, bytes, err
+		a.Error = err
+		return resp.StatusCode, err
 	}
+	defer resp.Body.Close()
 
 	//! decode bytes to json
 	if obj != nil {
 		if err := json.NewDecoder(resp.Body).Decode(&obj); err != nil {
 			a.Error = err
-			return resp, bytes, err
+			return resp.StatusCode, err
 		}
 	}
-
-	return resp, bytes, a.Error
+	return resp.StatusCode, a.Error
 }
 
-func (a *Agent) XML(obj interface{}) (*http.Response, []byte, error) {
+func (a *Agent) XML(obj interface{}) (int, error) {
 	a.t = "xml"
 
-	resp, bytes, err := a.Bytes()
+	resp, err := a.Do()
 	if err != nil {
-		return resp, bytes, err
+		a.Error = err
+		return resp.StatusCode, err
 	}
+	defer resp.Body.Close()
 
 	//! decode bytes to json
 	if obj != nil {
 		if err := xml.NewDecoder(resp.Body).Decode(&obj); err != nil {
 			a.Error = err
-			return resp, bytes, err
+			return resp.StatusCode, err
 		}
 	}
 
-	return resp, bytes, a.Error
+	return resp.StatusCode, a.Error
 }

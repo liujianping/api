@@ -1,4 +1,4 @@
-# api
+# api, another http request wrapper
 ===
 
 Simplified HTTP client library :) :D
@@ -30,6 +30,7 @@ add by branch
 	agent := api.Head("http://a.domain.com/")
 
 	//! set api request method & URI & headers & parameters & form-data
+	agent.Transport(tr)
 
 	agent.Method(api.POST)
 
@@ -58,14 +59,14 @@ add by branch
 
 
 	//! do api request
+	resp, err := agent.Do()
 
-	resp, []byte, err := agent.Bytes()
+	code, []byte, err := agent.Bytes()
 
-	resp, string, err := agent.Text()
+	code, string, err := agent.Text()
 
-	resp, []byte, err := agent.JSON(&json)
+	code, err := agent.JSON(&json)
 
-	resp, []byte, err := agent.XML(&xml)
-	
+	code, err := agent.XML(&xml)	
 
 ````

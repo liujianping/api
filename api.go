@@ -83,31 +83,11 @@ func Head(aurl string) *Agent {
 }
 
 func HTTP(host string) *Agent {
-	return &Agent{
-		u: &url.URL{
-			Scheme: "http",
-			Host:   host,
-		},
-		t:       types["html"],
-		m:       GET,
-		heads:   make(map[string]string),
-		query:   url.Values{},
-		cookies: make([]*http.Cookie, 0),
-	}
+	return URL(fmt.Sprintf("http://%s", host))
 }
 
 func HTTPs(host string) *Agent {
-	return &Agent{
-		u: &url.URL{
-			Scheme: "https",
-			Host:   host,
-		},
-		t:       types["html"],
-		m:       GET,
-		heads:   make(map[string]string),
-		query:   url.Values{},
-		cookies: make([]*http.Cookie, 0),
-	}
+	return URL(fmt.Sprintf("https://%s", host))
 }
 
 func (a *Agent) Transport(tr http.RoundTripper) *Agent {
@@ -237,6 +217,9 @@ func (a *Agent) XMLData(obj interface{}) *Agent {
 }
 
 func (a *Agent) Do() (*http.Response, error) {
+	if a.Error != nil {
+		return nil, a.Error
+	}
 	req, err := http.NewRequest(a.m, a.u.String(), a.data)
 	if err != nil {
 		a.Error = err

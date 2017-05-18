@@ -13,6 +13,9 @@ import (
 
 	"encoding/json"
 	"encoding/xml"
+
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
 )
 
 const (
@@ -315,6 +318,25 @@ func (a *Agent) JSON(obj interface{}) (int, error) {
 	//! decode bytes to json
 	if obj != nil {
 		if err := json.NewDecoder(resp.Body).Decode(&obj); err != nil {
+			a.Error = err
+			return resp.StatusCode, err
+		}
+	}
+	return resp.StatusCode, a.Error
+}
+
+func (a *Agent) JSONPB(obj proto.Message) (int, error) {
+	a.t = "json"
+	resp, err := a.Do()
+	if err != nil {
+		a.Error = err
+		return resp.StatusCode, err
+	}
+	defer resp.Body.Close()
+
+	//! decode bytes to jsonpb
+	if obj != nil {
+		if err := jsonpb.Unmarshal(resp.Body, obj); err != nil {
 			a.Error = err
 			return resp.StatusCode, err
 		}

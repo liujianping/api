@@ -284,7 +284,7 @@ func (a *Agent) Bytes() (int, []byte, error) {
 		log.Printf("api response\n--------------------------------\n%s\n", string(dump))
 	}
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		a.Error = fmt.Errorf(resp.Status)
 		return resp.StatusCode, nil, a.Error
 	}
@@ -315,6 +315,11 @@ func (a *Agent) JSON(obj interface{}) (int, error) {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		a.Error = fmt.Errorf(resp.Status)
+		return resp.StatusCode, fmt.Errorf(resp.Status)
+	}
+
 	//! decode bytes to json
 	if obj != nil {
 		if err := json.NewDecoder(resp.Body).Decode(&obj); err != nil {
@@ -333,6 +338,11 @@ func (a *Agent) JSONPB(obj proto.Message) (int, error) {
 		return resp.StatusCode, err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		a.Error = fmt.Errorf(resp.Status)
+		return resp.StatusCode, fmt.Errorf(resp.Status)
+	}
 
 	//! decode bytes to jsonpb
 	if obj != nil {
@@ -353,6 +363,11 @@ func (a *Agent) XML(obj interface{}) (int, error) {
 		return resp.StatusCode, err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		a.Error = fmt.Errorf(resp.Status)
+		return resp.StatusCode, fmt.Errorf(resp.Status)
+	}
 
 	//! decode bytes to json
 	if obj != nil {

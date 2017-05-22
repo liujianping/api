@@ -285,6 +285,11 @@ func (a *Agent) Bytes() (int, []byte, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			a.Error = err
+			return resp.StatusCode, nil, fmt.Errorf(string(body))
+		}
 		a.Error = fmt.Errorf(resp.Status)
 		return resp.StatusCode, nil, a.Error
 	}
@@ -316,6 +321,11 @@ func (a *Agent) JSON(obj interface{}) (int, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			a.Error = err
+			return resp.StatusCode, fmt.Errorf(string(body))
+		}
 		a.Error = fmt.Errorf(resp.Status)
 		return resp.StatusCode, fmt.Errorf(resp.Status)
 	}
@@ -340,6 +350,11 @@ func (a *Agent) JSONPB(obj proto.Message) (int, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			a.Error = err
+			return resp.StatusCode, fmt.Errorf(string(body))
+		}
 		a.Error = fmt.Errorf(resp.Status)
 		return resp.StatusCode, fmt.Errorf(resp.Status)
 	}
@@ -365,6 +380,11 @@ func (a *Agent) XML(obj interface{}) (int, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			a.Error = err
+			return resp.StatusCode, fmt.Errorf(string(body))
+		}
 		a.Error = fmt.Errorf(resp.Status)
 		return resp.StatusCode, fmt.Errorf(resp.Status)
 	}

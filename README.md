@@ -2,7 +2,6 @@
 ===
 
 Simplified HTTP client library :D
-:)
 
 ##  Quick Start
 

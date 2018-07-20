@@ -211,6 +211,16 @@ func (a *Agent) JSONData(args ...interface{}) *Agent {
 	return a
 }
 
+func (a *Agent) PBData(obj proto.Message) *Agent {
+	buf := bytes.NewBuffer([]byte{})
+	marshaler := &jsonpb.Marshaler{EmitDefaults: true}
+	err := marshaler.Marshal(buf, obj)
+	a.data = buf
+	a.Error = err
+	a.length = buf.Len()
+	return a
+}
+
 func (a *Agent) XMLData(obj interface{}) *Agent {
 	data, err := xml.Marshal(obj)
 	a.data = bytes.NewBuffer(data)

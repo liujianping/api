@@ -141,6 +141,15 @@ func (a *Agent) QueryDel(key string) *Agent {
 	return a
 }
 
+func (a *Agent) SetHead(hdr http.Header) *Agent {
+	for k, vs := range hdr {
+		for _, v := range vs {
+			a.headerIn.Add(k, v)
+		}
+	}
+	return a
+}
+
 func (a *Agent) HeadSet(key string, value string) *Agent {
 	a.headerIn.Set(key, value)
 	return a
@@ -419,10 +428,10 @@ func (a *Agent) XML(obj interface{}) (int, error) {
 	return resp.StatusCode, a.Error
 }
 
-func (a *Agent) HeadIn() http.Header {
+func (a *Agent) GetHeadIn() http.Header {
 	return a.headerIn
 }
 
-func (a *Agent) HeadOut() http.Header {
+func (a *Agent) GetHeadOut() http.Header {
 	return a.headerOut
 }

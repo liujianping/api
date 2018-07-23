@@ -38,30 +38,32 @@ var types = map[string]string{
 }
 
 type Agent struct {
-	u       *url.URL
-	t       string
-	m       string
-	heads   map[string]string
-	query   url.Values
-	cookies []*http.Cookie
-	data    io.Reader
-	length  int
-	Error   error
-	debug   bool
-	conn    *http.Client
+	u         *url.URL
+	t         string
+	m         string
+	headerIn  http.Header
+	headerOut http.Header
+	query     url.Values
+	cookies   []*http.Cookie
+	data      io.Reader
+	length    int
+	Error     error
+	debug     bool
+	conn      *http.Client
 }
 
 func URL(aurl string) *Agent {
 	u, err := url.Parse(aurl)
 	return &Agent{
-		u:       u,
-		t:       types["html"],
-		m:       GET,
-		heads:   make(map[string]string),
-		query:   url.Values{},
-		cookies: make([]*http.Cookie, 0),
-		Error:   err,
-		conn:    http.DefaultClient,
+		u:         u,
+		t:         types["html"],
+		m:         GET,
+		headerIn:  make(map[string][]string),
+		headerOut: make(map[string][]string),
+		query:     url.Values{},
+		cookies:   make([]*http.Cookie, 0),
+		Error:     err,
+		conn:      http.DefaultClient,
 	}
 }
 
@@ -140,12 +142,17 @@ func (a *Agent) QueryDel(key string) *Agent {
 }
 
 func (a *Agent) HeadSet(key string, value string) *Agent {
-	a.heads[key] = value
+	a.headerIn.Set(key, value)
+	return a
+}
+
+func (a *Agent) HeadAdd(key string, value string) *Agent {
+	a.headerIn.Add(key, value)
 	return a
 }
 
 func (a *Agent) HeadDel(key string) *Agent {
-	delete(a.heads, key)
+	a.headerIn.Del(key)
 	return a
 }
 
@@ -240,10 +247,8 @@ func (a *Agent) Do() (*http.Response, error) {
 	}
 
 	//! headers
+	req.Header = a.headerIn
 	req.Header.Set("Content-Type", types[a.t])
-	for k, v := range a.heads {
-		req.Header.Set(k, v)
-	}
 
 	//! query
 	q := req.URL.Query()
@@ -272,7 +277,11 @@ func (a *Agent) Do() (*http.Response, error) {
 		log.Printf("api request\n-------------------------------\n%s\n", string(dump))
 	}
 
-	return a.conn.Do(req)
+	resp, err := a.conn.Do(req)
+	if resp != nil {
+		a.headerOut = resp.Header
+	}
+	return resp, err
 }
 
 func (a *Agent) Status() (int, string, error) {
@@ -408,4 +417,12 @@ func (a *Agent) XML(obj interface{}) (int, error) {
 	}
 
 	return resp.StatusCode, a.Error
+}
+
+func (a *Agent) HeadIn() http.Header {
+	return a.headerIn
+}
+
+func (a *Agent) HeadOut() http.Header {
+	return a.headerOut
 }

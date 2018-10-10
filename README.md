@@ -41,6 +41,10 @@ Simplified HTTP client library :D
 	agent.JSONData(obj)
 	agent.XMLData(obj)
 
+	//! multipart file
+	fd, _ := api.NewFile("field", "/path/to/file")
+	agent.FileData(fd)
+
 	//! chain invoke
 	var result Result{}
 

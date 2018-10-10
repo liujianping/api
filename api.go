@@ -6,9 +6,11 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"path/filepath"
 	"strings"
 
 	"encoding/json"
@@ -35,6 +37,7 @@ var types = map[string]string{
 	"urlencoded": "application/x-www-form-urlencoded",
 	"form":       "application/x-www-form-urlencoded",
 	"form-data":  "application/x-www-form-urlencoded",
+	"multipart":  "multipart/form-data",
 }
 
 type Agent struct {
@@ -45,6 +48,7 @@ type Agent struct {
 	headerOut http.Header
 	query     url.Values
 	cookies   []*http.Cookie
+	files     []*File
 	data      io.Reader
 	length    int
 	Error     error
@@ -62,6 +66,7 @@ func URL(aurl string) *Agent {
 		headerOut: make(map[string][]string),
 		query:     url.Values{},
 		cookies:   make([]*http.Cookie, 0),
+		files:     make([]*File, 0),
 		Error:     err,
 		conn:      http.DefaultClient,
 	}
@@ -245,10 +250,76 @@ func (a *Agent) XMLData(obj interface{}) *Agent {
 	return a
 }
 
+type File struct {
+	Filename  string
+	Fieldname string
+	Data      []byte
+}
+
+func NewFile(field string, filename string) (*File, error) {
+	absFile, err := filepath.Abs(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	fn := filepath.Base(absFile)
+	data, err := ioutil.ReadFile(absFile)
+	if err != nil {
+		return nil, err
+	}
+	return &File{
+		Filename:  fn,
+		Fieldname: field,
+		Data:      data,
+	}, nil
+}
+
+func NewFileByBytes(field string, filename string, data []byte) (*File, error) {
+	fn := filepath.Base(filename)
+	return &File{
+		Filename:  fn,
+		Fieldname: field,
+		Data:      data,
+	}, nil
+}
+
+func NewFileByReader(field string, filename string, rd io.Reader) (*File, error) {
+	fn := filepath.Base(filename)
+	data, err := ioutil.ReadAll(rd)
+	if err != nil {
+		return nil, err
+	}
+	return &File{
+		Filename:  fn,
+		Fieldname: field,
+		Data:      data,
+	}, nil
+}
+
+func (a *Agent) FileData(files ...*File) *Agent {
+	a.files = append(a.files, files...)
+	return a
+}
+
 func (a *Agent) Do() (*http.Response, error) {
 	if a.Error != nil {
 		return nil, a.Error
 	}
+
+	content_type := types[a.t]
+	if len(a.files) > 0 {
+		buf := &bytes.Buffer{}
+		mw := multipart.NewWriter(buf)
+
+		for _, file := range a.files {
+			fw, _ := mw.CreateFormFile(file.Fieldname, file.Filename)
+			fw.Write(file.Data)
+		}
+		a.data = buf
+		content_type = mw.FormDataContentType()
+		mw.Close()
+	}
+
 	req, err := http.NewRequest(a.m, a.u.String(), a.data)
 	if err != nil {
 		a.Error = err
@@ -257,7 +328,7 @@ func (a *Agent) Do() (*http.Response, error) {
 
 	//! headers
 	req.Header = a.headerIn
-	req.Header.Set("Content-Type", types[a.t])
+	req.Header.Set("Content-Type", content_type)
 
 	//! query
 	q := req.URL.Query()

@@ -201,6 +201,7 @@ func (a *Agent) FormData(form map[string][]string) *Agent {
 	data := url.Values(form).Encode()
 	a.data = strings.NewReader(data)
 	a.length = len(data)
+	a.t = "form"
 	return a
 }
 
@@ -229,6 +230,7 @@ func (a *Agent) JSONData(args ...interface{}) *Agent {
 		a.length = len(data)
 		a.Error = err
 	}
+	a.t = "json"
 	return a
 }
 
@@ -239,6 +241,7 @@ func (a *Agent) PBData(obj proto.Message) *Agent {
 	a.data = buf
 	a.Error = err
 	a.length = buf.Len()
+	a.t = "json"
 	return a
 }
 
@@ -247,6 +250,7 @@ func (a *Agent) XMLData(obj interface{}) *Agent {
 	a.data = bytes.NewBuffer(data)
 	a.length = len(data)
 	a.Error = err
+	a.t = "xml"
 	return a
 }
 
@@ -298,6 +302,7 @@ func NewFileByReader(field string, filename string, rd io.Reader) (*File, error)
 
 func (a *Agent) FileData(files ...*File) *Agent {
 	a.files = append(a.files, files...)
+	a.t = "multipart"
 	return a
 }
 
@@ -404,14 +409,11 @@ func (a *Agent) Bytes() (int, []byte, error) {
 }
 
 func (a *Agent) Text() (int, string, error) {
-	a.t = "text"
 	code, bytes, err := a.Bytes()
 	return code, string(bytes), err
 }
 
 func (a *Agent) JSON(obj interface{}) (int, error) {
-	a.t = "json"
-
 	resp, err := a.Do()
 	if err != nil {
 		a.Error = err
@@ -440,7 +442,6 @@ func (a *Agent) JSON(obj interface{}) (int, error) {
 }
 
 func (a *Agent) JSONPB(obj proto.Message) (int, error) {
-	a.t = "json"
 	resp, err := a.Do()
 	if err != nil {
 		a.Error = err
@@ -469,8 +470,6 @@ func (a *Agent) JSONPB(obj proto.Message) (int, error) {
 }
 
 func (a *Agent) XML(obj interface{}) (int, error) {
-	a.t = "xml"
-
 	resp, err := a.Do()
 	if err != nil {
 		a.Error = err

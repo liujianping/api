@@ -371,15 +371,18 @@ func (a *Agent) Do() (*http.Response, error) {
 
 func (a *Agent) Status() (int, string, error) {
 	resp, err := a.Do()
-	a.Error = err
-	return resp.StatusCode, resp.Status, err
+	if err != nil {
+		a.Error = err
+		return http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), err
+	}
+	return resp.StatusCode, resp.Status, nil
 }
 
 func (a *Agent) Bytes() (int, []byte, error) {
 	resp, err := a.Do()
 	if err != nil {
 		a.Error = err
-		return resp.StatusCode, nil, err
+		return http.StatusInternalServerError, []byte{}, err
 	}
 	defer resp.Body.Close()
 
@@ -417,7 +420,7 @@ func (a *Agent) JSON(obj interface{}) (int, error) {
 	resp, err := a.Do()
 	if err != nil {
 		a.Error = err
-		return resp.StatusCode, err
+		return http.StatusInternalServerError, err
 	}
 	defer resp.Body.Close()
 
@@ -445,7 +448,7 @@ func (a *Agent) JSONPB(obj proto.Message) (int, error) {
 	resp, err := a.Do()
 	if err != nil {
 		a.Error = err
-		return resp.StatusCode, err
+		return http.StatusInternalServerError, err
 	}
 	defer resp.Body.Close()
 
@@ -473,7 +476,7 @@ func (a *Agent) XML(obj interface{}) (int, error) {
 	resp, err := a.Do()
 	if err != nil {
 		a.Error = err
-		return resp.StatusCode, err
+		return http.StatusInternalServerError, err
 	}
 	defer resp.Body.Close()
 

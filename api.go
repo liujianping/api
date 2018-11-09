@@ -44,6 +44,7 @@ type Agent struct {
 	u         *url.URL
 	t         string
 	m         string
+	prefix    string
 	headerIn  http.Header
 	headerOut http.Header
 	query     url.Values
@@ -58,10 +59,15 @@ type Agent struct {
 
 func URL(aurl string) *Agent {
 	u, err := url.Parse(aurl)
+	prefix := ""
+	if u.Path != "" || u.Path != "/" {
+		prefix = strings.TrimSuffix(u.Path, "/")
+	}
 	return &Agent{
 		u:         u,
 		t:         types["html"],
 		m:         GET,
+		prefix:    prefix,
 		headerIn:  make(map[string][]string),
 		headerOut: make(map[string][]string),
 		query:     url.Values{},
@@ -100,6 +106,11 @@ func HTTPs(host string) *Agent {
 	return URL(fmt.Sprintf("https://%s", host))
 }
 
+func (a *Agent) Prefix(prefix string) *Agent {
+	a.prefix = strings.TrimSuffix(prefix, "/")
+	return a
+}
+
 func (a *Agent) Transport(tr http.RoundTripper) *Agent {
 	a.conn = &http.Client{
 		Transport: tr,
@@ -113,6 +124,9 @@ func (a *Agent) Debug(flag bool) *Agent {
 }
 func (a *Agent) URI(uri string) *Agent {
 	a.u.Path = uri
+	if len(a.prefix) > 0 {
+		a.u.Path = a.prefix + uri
+	}
 	return a
 }
 

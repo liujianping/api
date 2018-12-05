@@ -40,6 +40,8 @@ var types = map[string]string{
 	"multipart":  "multipart/form-data",
 }
 
+type ResponseProcessor func(*http.Response) (*http.Response, error)
+
 type Agent struct {
 	u         *url.URL
 	t         string
@@ -55,14 +57,15 @@ type Agent struct {
 	Error     error
 	debug     bool
 	conn      *http.Client
+	processor ResponseProcessor
 }
 
 func URL(aurl string) *Agent {
 	u, err := url.Parse(aurl)
-	prefix := ""
-	if u.Path != "" || u.Path != "/" {
-		prefix = strings.TrimSuffix(u.Path, "/")
+	if err != nil {
+		panic(err)
 	}
+	prefix := strings.TrimSuffix(u.Path, "/")
 	return &Agent{
 		u:         u,
 		t:         types["html"],
@@ -104,6 +107,11 @@ func HTTP(host string) *Agent {
 
 func HTTPs(host string) *Agent {
 	return URL(fmt.Sprintf("https://%s", host))
+}
+
+func (a *Agent) ResponseProcessor(processor ResponseProcessor) *Agent {
+	a.processor = processor
+	return a
 }
 
 func (a *Agent) Prefix(prefix string) *Agent {
@@ -379,6 +387,11 @@ func (a *Agent) Do() (*http.Response, error) {
 	resp, err := a.conn.Do(req)
 	if resp != nil {
 		a.headerOut = resp.Header
+	}
+
+	//response processor
+	if a.processor != nil && err == nil {
+		return a.processor(resp)
 	}
 	return resp, err
 }

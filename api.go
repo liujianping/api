@@ -42,6 +42,11 @@ var types = map[string]string{
 
 type ResponseProcessor func(*http.Response) (*http.Response, error)
 
+type Cipher interface {
+	Encrypt([]byte) ([]byte, error)
+	Decrypt([]byte) ([]byte, error)
+}
+
 type Agent struct {
 	u         *url.URL
 	t         string
@@ -54,6 +59,7 @@ type Agent struct {
 	files     []*File
 	data      io.Reader
 	length    int
+	cipher    Cipher
 	Error     error
 	debug     bool
 	conn      *http.Client
@@ -109,6 +115,10 @@ func HTTPs(host string) *Agent {
 	return URL(fmt.Sprintf("https://%s", host))
 }
 
+func (a *Agent) SetCipher(cipher Cipher) *Agent {
+	a.cipher = cipher
+	return a
+}
 func (a *Agent) ResponseProcessor(processor ResponseProcessor) *Agent {
 	a.processor = processor
 	return a
@@ -384,9 +394,45 @@ func (a *Agent) Do() (*http.Response, error) {
 		log.Printf("api request\n-------------------------------\n%s\n", string(dump))
 	}
 
+	//! cipher
+	if a.cipher != nil {
+		byts, err := ioutil.ReadAll(a.data)
+		if err != nil {
+			return nil, err
+		}
+		enbyts, err := a.cipher.Encrypt(byts)
+		if err != nil {
+			return nil, err
+		}
+		a.data = bytes.NewBuffer(enbyts)
+		a.length = len(enbyts)
+	}
+
 	resp, err := a.conn.Do(req)
 	if resp != nil {
 		a.headerOut = resp.Header
+	}
+
+	//! cipher
+	if a.cipher != nil {
+		if strings.ToLower(resp.Header.Get("X-CIPHER-ENCODED")) == "true" {
+			enbyts, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				return nil, err
+			}
+			debyts, err := a.cipher.Decrypt(enbyts)
+			if err != nil {
+				return nil, err
+			}
+			resp.Header.Del("X-CIPHER-ENCODED")
+			resp.Body = ioutil.NopCloser(bytes.NewBuffer(debyts))
+			resp.ContentLength = int64(len(debyts))
+		}
+	}
+
+	if a.debug {
+		dump, _ := httputil.DumpResponse(resp, true)
+		log.Printf("api response\n-------------------------------\n%s\n", string(dump))
 	}
 
 	//response processor

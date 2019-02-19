@@ -2,6 +2,8 @@ package api
 
 import (
 	"bytes"
+	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -13,11 +15,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"encoding/json"
-	"encoding/xml"
-
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
+	"github.com/opentracing-contrib/go-stdlib/nethttp"
+	"github.com/opentracing/opentracing-go"
 )
 
 const (
@@ -64,8 +65,9 @@ type Agent struct {
 	cipher    Cipher
 	Error     error
 	debug     bool
-	conn      *http.Client
+	client    *http.Client
 	processor ResponseProcessor
+	tracer    opentracing.Tracer
 }
 
 func URL(aurl string) *Agent {
@@ -85,7 +87,7 @@ func URL(aurl string) *Agent {
 		cookies:   make([]*http.Cookie, 0),
 		files:     make([]*File, 0),
 		Error:     err,
-		conn:      http.DefaultClient,
+		client:    http.DefaultClient,
 	}
 }
 
@@ -132,7 +134,7 @@ func (a *Agent) Prefix(prefix string) *Agent {
 }
 
 func (a *Agent) Transport(tr http.RoundTripper) *Agent {
-	a.conn = &http.Client{
+	a.client = &http.Client{
 		Transport: tr,
 	}
 	return a
@@ -229,6 +231,14 @@ func (a *Agent) ContentType(t string) *Agent {
 		a.m = ct
 	}
 	return a
+}
+
+func (a *Agent) SetTracer(tracer opentracing.Tracer) {
+	a.tracer = tracer
+}
+
+func (a *Agent) SetHttpClient(client *http.Client) {
+	a.client = client
 }
 
 func (a *Agent) FormData(form map[string][]string) *Agent {
@@ -374,10 +384,16 @@ func (a *Agent) Do() (*http.Response, error) {
 		a.length = len(enbyts)
 	}
 
+	var req *http.Request
 	req, err := http.NewRequest(a.m, a.u.String(), a.data)
 	if err != nil {
 		a.Error = err
 		return nil, err
+	}
+	if a.tracer != nil {
+		traceReq, ht := nethttp.TraceRequest(a.tracer, req, nethttp.OperationName(fmt.Sprintf("HTTP %s %s", a.m, a.u.String())))
+		req = traceReq
+		defer ht.Finish()
 	}
 
 	//! headers
@@ -411,7 +427,7 @@ func (a *Agent) Do() (*http.Response, error) {
 		log.Printf("api request\n-------------------------------\n%s\n", string(dump))
 	}
 
-	resp, err := a.conn.Do(req)
+	resp, err := a.client.Do(req)
 	if resp != nil {
 		a.headerOut = resp.Header
 	}

@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
@@ -17,8 +18,6 @@ import (
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
-	"github.com/opentracing-contrib/go-stdlib/nethttp"
-	"github.com/opentracing/opentracing-go"
 )
 
 const (
@@ -41,6 +40,7 @@ var types = map[string]string{
 	"multipart":  "multipart/form-data",
 }
 
+type RequestProcessor func(*http.Request) (*http.Request, error)
 type ResponseProcessor func(*http.Response) (*http.Response, error)
 
 type Cipher interface {
@@ -51,23 +51,23 @@ type Cipher interface {
 const CIPHER_HEADER = "X-CIPHER-ENCODED"
 
 type Agent struct {
-	u         *url.URL
-	t         string
-	m         string
-	prefix    string
-	headerIn  http.Header
-	headerOut http.Header
-	query     url.Values
-	cookies   []*http.Cookie
-	files     []*File
-	data      io.Reader
-	length    int
-	cipher    Cipher
-	Error     error
-	debug     bool
-	client    *http.Client
-	processor ResponseProcessor
-	tracer    opentracing.Tracer
+	u             *url.URL
+	t             string
+	m             string
+	prefix        string
+	headerIn      http.Header
+	headerOut     http.Header
+	query         url.Values
+	cookies       []*http.Cookie
+	files         []*File
+	data          io.Reader
+	length        int
+	cipher        Cipher
+	Error         error
+	debug         bool
+	client        *http.Client
+	reqProcessor  RequestProcessor
+	respProcessor ResponseProcessor
 }
 
 func URL(aurl string) *Agent {
@@ -123,8 +123,13 @@ func (a *Agent) SetCipher(cipher Cipher) *Agent {
 	a.cipher = cipher
 	return a
 }
+
+func (a *Agent) RequestProcessor(processor RequestProcessor) *Agent {
+	a.reqProcessor = processor
+	return a
+}
 func (a *Agent) ResponseProcessor(processor ResponseProcessor) *Agent {
-	a.processor = processor
+	a.respProcessor = processor
 	return a
 }
 
@@ -231,10 +236,6 @@ func (a *Agent) ContentType(t string) *Agent {
 		a.m = ct
 	}
 	return a
-}
-
-func (a *Agent) SetTracer(tracer opentracing.Tracer) {
-	a.tracer = tracer
 }
 
 func (a *Agent) SetHttpClient(client *http.Client) {
@@ -350,7 +351,7 @@ func (a *Agent) FileData(files ...*File) *Agent {
 	return a
 }
 
-func (a *Agent) Do() (*http.Response, error) {
+func (a *Agent) Do(ctx context.Context) (*http.Response, error) {
 	if a.Error != nil {
 		return nil, a.Error
 	}
@@ -390,10 +391,14 @@ func (a *Agent) Do() (*http.Response, error) {
 		a.Error = err
 		return nil, err
 	}
-	if a.tracer != nil {
-		traceReq, ht := nethttp.TraceRequest(a.tracer, req, nethttp.OperationName(fmt.Sprintf("HTTP %s %s", a.m, a.u.String())))
-		req = traceReq
-		defer ht.Finish()
+	req = req.WithContext(ctx)
+	if a.reqProcessor != nil {
+		r, err := a.reqProcessor(req)
+		if err != nil {
+			a.Error = err
+			return nil, err
+		}
+		req = r
 	}
 
 	//! headers
@@ -455,14 +460,14 @@ func (a *Agent) Do() (*http.Response, error) {
 	}
 
 	//response processor
-	if a.processor != nil && err == nil {
-		return a.processor(resp)
+	if a.respProcessor != nil && err == nil {
+		return a.respProcessor(resp)
 	}
 	return resp, err
 }
 
-func (a *Agent) Status() (int, string, error) {
-	resp, err := a.Do()
+func (a *Agent) ContextStatus(ctx context.Context) (int, string, error) {
+	resp, err := a.Do(ctx)
 	if err != nil {
 		a.Error = err
 		return http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), err
@@ -470,8 +475,16 @@ func (a *Agent) Status() (int, string, error) {
 	return resp.StatusCode, resp.Status, nil
 }
 
+func (a *Agent) Status() (int, string, error) {
+	return a.ContextStatus(context.TODO())
+}
+
 func (a *Agent) Bytes() (int, []byte, error) {
-	resp, err := a.Do()
+	return a.ContextBytes(context.TODO())
+}
+
+func (a *Agent) ContextBytes(ctx context.Context) (int, []byte, error) {
+	resp, err := a.Do(ctx)
 	if err != nil {
 		a.Error = err
 		return http.StatusInternalServerError, []byte{}, err
@@ -503,13 +516,20 @@ func (a *Agent) Bytes() (int, []byte, error) {
 	return resp.StatusCode, body, a.Error
 }
 
+func (a *Agent) ContextText(ctx context.Context) (int, string, error) {
+	code, bytes, err := a.ContextBytes(ctx)
+	return code, string(bytes), err
+}
 func (a *Agent) Text() (int, string, error) {
-	code, bytes, err := a.Bytes()
+	code, bytes, err := a.ContextBytes(context.TODO())
 	return code, string(bytes), err
 }
 
 func (a *Agent) JSON(obj interface{}) (int, error) {
-	resp, err := a.Do()
+	return a.ContextJSON(context.TODO(), obj)
+}
+func (a *Agent) ContextJSON(ctx context.Context, obj interface{}) (int, error) {
+	resp, err := a.Do(ctx)
 	if err != nil {
 		a.Error = err
 		return http.StatusInternalServerError, err
@@ -537,7 +557,11 @@ func (a *Agent) JSON(obj interface{}) (int, error) {
 }
 
 func (a *Agent) JSONPB(obj proto.Message) (int, error) {
-	resp, err := a.Do()
+	return a.ContextJSONPB(context.TODO(), obj)
+}
+
+func (a *Agent) ContextJSONPB(ctx context.Context, obj proto.Message) (int, error) {
+	resp, err := a.Do(ctx)
 	if err != nil {
 		a.Error = err
 		return http.StatusInternalServerError, err
@@ -563,9 +587,11 @@ func (a *Agent) JSONPB(obj proto.Message) (int, error) {
 	}
 	return resp.StatusCode, a.Error
 }
-
 func (a *Agent) XML(obj interface{}) (int, error) {
-	resp, err := a.Do()
+	return a.ContextXML(context.TODO(), obj)
+}
+func (a *Agent) ContextXML(ctx context.Context, obj interface{}) (int, error) {
+	resp, err := a.Do(ctx)
 	if err != nil {
 		a.Error = err
 		return http.StatusInternalServerError, err

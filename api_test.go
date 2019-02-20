@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -50,7 +51,7 @@ func TestProcessor(t *testing.T) {
 	}
 	agent.ResponseProcessor(p)
 
-	rsp, err := agent.Do()
+	rsp, err := agent.Do(context.TODO())
 	fmt.Println("response: ", rsp)
 	if err != nil {
 		t.Errorf("error : %v", err)

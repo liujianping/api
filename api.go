@@ -40,7 +40,8 @@ var types = map[string]string{
 	"multipart":  "multipart/form-data",
 }
 
-type RequestProcessor func(*http.Request) (*http.Request, error)
+type RequestProcessorDeferHandler func()
+type RequestProcessor func(*http.Request) (*http.Request, RequestProcessorDeferHandler, error)
 type ResponseProcessor func(*http.Response) (*http.Response, error)
 
 type Cipher interface {
@@ -393,10 +394,13 @@ func (a *Agent) Do(ctx context.Context) (*http.Response, error) {
 	}
 	req = req.WithContext(ctx)
 	if a.reqProcessor != nil {
-		r, err := a.reqProcessor(req)
+		r, finish, err := a.reqProcessor(req)
 		if err != nil {
 			a.Error = err
 			return nil, err
+		}
+		if finish != nil {
+			defer finish()
 		}
 		req = r
 	}

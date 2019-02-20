@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -46,8 +45,19 @@ func TestGetJSON(t *testing.T) {
 
 func TestProcessor(t *testing.T) {
 	agent := Get("https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential")
+
+	pre := func(req *http.Request) (*http.Request, RequestProcessorDeferHandler, error) {
+		i := 6
+		log.Println("request processor doing ...", i)
+		i++
+		return req, func() {
+			log.Println("request processor finish ...", i)
+		}, nil
+	}
+	agent.RequestProcessor(pre)
 	p := func(resp *http.Response) (*http.Response, error) {
-		return resp, errors.New("processor error")
+		log.Println("response processor doing ...")
+		return resp, nil
 	}
 	agent.ResponseProcessor(p)
 

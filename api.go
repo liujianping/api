@@ -630,3 +630,8 @@ func (a *Agent) GetHeadIn() http.Header {
 func (a *Agent) GetHeadOut() http.Header {
 	return a.headerOut
 }
+
+func (a *Agent) ClearError() *Agent {
+	a.Error = nil
+	return a
+}
